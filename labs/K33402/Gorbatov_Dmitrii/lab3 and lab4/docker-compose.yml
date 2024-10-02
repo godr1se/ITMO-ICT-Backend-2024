@@ -1,0 +1,58 @@
+version: "3.9"
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+    environment:
+      PORT: 8000
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    command: ["wait-for-it", "rabbitmq:5672", "--", "npm", "start"]
+    networks:
+      - app-network
+
+  main:
+    build:
+      context: ./main
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    depends_on:
+      - auth
+    environment:
+      PORT: 8001
+      AUTH_SERVICE: http://auth:8000
+    networks:
+      - app-network
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "2000:2000"
+    depends_on:
+      - auth
+      - main
+    environment:
+      PORT: 2000
+      AUTH_SERVICE: http://auth:8000
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
